@@ -17,17 +17,29 @@ void loop() {
   // Mouvement de gauche à droite
   for (int angle = pt_depart; angle <= pt_arrive; angle++) {
     myServo.write(angle/1.5);
-    int sensorValue = analogRead(A0);
+    int moy = 0;
+    for (int i=0; i<10 ;i++) {
+      int sensorValue = analogRead(A0);
+      moy += sensorValue;
+    }
+    moy = moy / 10;
+    
     // Format : angle,valeur    
-    Serial.println(sensorValue);
+    Serial.println(moy);
     delay(15);
   }
   
   // Mouvement de droite à gauche
   for (int angle = pt_arrive; angle >= pt_depart; angle--) {
     myServo.write(angle/1.5);
-    int sensorValue = analogRead(A0);
-    Serial.println(sensorValue);
+    int moy = 0;
+    for (int i=0; i<10 ;i++) {
+      int sensorValue = analogRead(A0);
+      moy += sensorValue;
+    }
+    moy = moy / 10;
+
+    Serial.println(moy);
     delay(15);
   }
   
