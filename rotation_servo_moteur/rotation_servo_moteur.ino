@@ -7,6 +7,7 @@ int pt_arrive = 270;
 
 void setup() {
   myServo.attach(3);  // Attacher le servomoteur à la broche 3
+  serial.begin(9600);
 }
 
 void loop() {
@@ -14,6 +15,7 @@ void loop() {
   for (int angle = pt_depart; angle <= pt_arrive; angle++) {
     myServo.write(angle);  // Définir l'angle du servomoteur
     delay(50);             // Attendre 50 ms pour que le servomoteur atteigne la position
+    serial.println(angle);
   }
 
   // Faire tourner le servomoteur de 270 à 0 degrés (droite à gauche)
