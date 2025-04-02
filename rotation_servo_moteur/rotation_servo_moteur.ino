@@ -5,6 +5,7 @@ Servo myServo;
 int pt_depart = 0;
 int pt_arrive = 270;
 
+
 void setup() {
   myServo.attach(3);
   Serial.begin(9600);
@@ -13,34 +14,28 @@ void setup() {
 void loop() {
   // Envoyer un marqueur de début
   Serial.println(9999);
-  
+  myServo.write(0);
+  delay(200);
   // Mouvement de gauche à droite
-  for (int angle = pt_depart; angle <= pt_arrive; angle++) {
+  for (float angle = pt_depart; angle <= pt_arrive; angle+= 0.5) {
     myServo.write(angle/1.5);
     int moy = 0;
-    for (int i=0; i<10 ;i++) {
+    for (int i=0; i<20 ;i++) {
       int sensorValue = analogRead(A0);
       moy += sensorValue;
+      delay(2);    
     }
-    moy = moy / 10;
+    moy = moy / 20;
     
-    // Format : angle,valeur    
+    // Format : angle,valeur
     Serial.println(moy);
-    delay(15);
+    delay(5);
   }
   
   // Mouvement de droite à gauche
   for (int angle = pt_arrive; angle >= pt_depart; angle--) {
     myServo.write(angle/1.5);
-    int moy = 0;
-    for (int i=0; i<10 ;i++) {
-      int sensorValue = analogRead(A0);
-      moy += sensorValue;
-    }
-    moy = moy / 10;
-
-    Serial.println(moy);
-    delay(15);
+    delay(1);
   }
   
   // Envoyer un marqueur de fin
