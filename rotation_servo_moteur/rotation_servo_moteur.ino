@@ -13,32 +13,38 @@ void setup() {
 
 void loop() {
   // Envoyer un marqueur de début
-  Serial.println(9999);
   myServo.write(0);
-  delay(200);
+  Serial.println(9999);
+  Serial.flush();
+  delay(2000);
   // Mouvement de gauche à droite
-  for (float angle = pt_depart; angle <= pt_arrive; angle+= 0.5) {
+  for (float angle = pt_depart; angle <= pt_arrive; angle+= 3) {
     myServo.write(angle/1.5);
     int moy = 0;
     for (int i=0; i<20 ;i++) {
       int sensorValue = analogRead(A0);
       moy += sensorValue;
-      delay(2);    
+      delay(2);
     }
     moy = moy / 20;
     
-    // Format : angle,valeur
+    // Envoyer toutes les valeurs (même 370, 383, 385, etc.)
     Serial.println(moy);
-    delay(5);
+    Serial.flush();
+    delay(30);
   }
   
   // Mouvement de droite à gauche
   for (int angle = pt_arrive; angle >= pt_depart; angle--) {
     myServo.write(angle/1.5);
-    delay(1);
+    delay(10);  // Augmenter le délai pour éviter les erreurs de transmission
   }
+  
+  // Attendre que le servo s'arrête complètement
+  delay(500);
   
   // Envoyer un marqueur de fin
   Serial.println(-9999);
+  Serial.flush();
   delay(1000); // Pause avant de recommencer
 }
