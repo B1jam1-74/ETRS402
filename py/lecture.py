@@ -24,8 +24,8 @@ def collect_data():
         ser = serial.Serial(PORT, BAUD_RATE, timeout=1, rtscts=True, dsrdtr=True, write_timeout=0)
         time.sleep(2)  # Attendre que la connexion soit stable
         
-        status_var.set("Collecte des données en cours...")
-        progress_bar['value'] = 0
+        var_statut.set("Collecte des données en cours...")
+        barre_progression['value'] = 0
         
         while fini:
             if ser.in_waiting > 0:
@@ -38,8 +38,8 @@ def collect_data():
                         current_scan = len(billy[0])
                     
                     # Mise à jour de la barre de progression globale
-                    progress_bar['value'] = (current_scan * 33.33)
-                    root.update_idletasks()
+                    barre_progression['value'] = (current_scan * 33.33)
+                    fenetre.update_idletasks()
                     
                     while i < 90:
                         line = ser.readline().decode('utf-8').strip()
@@ -53,8 +53,8 @@ def collect_data():
                         
                         # Update progress bar within this scan (scaled to the current scan)
                         scan_progress = (i / 90) * 33.33
-                        progress_bar['value'] = (current_scan * 33.33) + scan_progress
-                        root.update_idletasks()
+                        barre_progression['value'] = (current_scan * 33.33) + scan_progress
+                        fenetre.update_idletasks()
                         i += 1
                 
                 # quand on a fait 3 fois le tour car on a 3 valeurs dans billy[2][-1]
@@ -63,25 +63,46 @@ def collect_data():
                     for i in range(90):
                         for scan in range(1, 3):  # Pour les scans 2 et 3
                             if len(billy[i]) <= scan:  # Si le scan n'a pas de valeur
-                                billy[i].append(billy[i-1][scan])  # Utiliser la valeur du scan précédentfor i in range(90):
+                                billy[i].append(billy[i-1][scan])  # Utiliser la valeur du scan précédent
                     
                     fini = False
-                    status_var.set("Collecte terminée!")
-                    process_button['state'] = 'normal'
-                    show_raw_button['state'] = 'normal'
+                    var_statut.set("Collecte terminée!")
+                    bouton_traitement['state'] = 'normal'
+                    bouton_valeurs_brutes['state'] = 'normal'
         
         ser.close()
         
     except Exception as e:
         messagebox.showerror("Erreur", f"Erreur de communication série: {e}")
-        status_var.set("Erreur de communication")
+        var_statut.set("Erreur de communication")
+
+# Fonction pour effectuer un nouveau scan
+def new_scan():
+    var_statut.set("Préparation pour un nouveau scan...")
+    
+    # Réinitialiser billy
+    global billy
+    billy = []
+    for i in range(90):
+        billy.append([])
+    
+    # Réinitialiser les boutons
+    bouton_collecte['state'] = 'normal'
+    bouton_traitement['state'] = 'disabled'
+    bouton_affichage['state'] = 'disabled'
+    bouton_valeurs_brutes['state'] = 'disabled'
+    
+    # Réinitialiser la barre de progression
+    barre_progression['value'] = 0
+    
+    var_statut.set("Prêt pour un nouveau scan")
 
 # Fonction pour lancer la collecte dans un thread séparé
 def start_collection():
-    collect_button['state'] = 'disabled'
-    process_button['state'] = 'disabled'
-    show_button['state'] = 'disabled'
-    show_raw_button['state'] = 'disabled'
+    bouton_collecte['state'] = 'disabled'
+    bouton_traitement['state'] = 'disabled'
+    bouton_affichage['state'] = 'disabled'
+    bouton_valeurs_brutes['state'] = 'disabled'
     
     # Réinitialiser billy
     global billy
@@ -94,7 +115,7 @@ def start_collection():
 
 # Fonction pour traiter les données
 def process_data():
-    status_var.set("Traitement des données...")
+    var_statut.set("Traitement des données...")
     
     try:
         # Créer un clone de billy
@@ -115,16 +136,24 @@ def process_data():
                 # Formula from MATLAB polyfit with exact coefficients
                 billy2[i][j] = 0.000000014078219*(billy2[i][j]**4) - 0.000021664228*(billy2[i][j]**3) + 0.0121434129*(billy2[i][j]**2) - 3.050156069*billy2[i][j] + 336.02811204
         
-        status_var.set("Traitement terminé!")
-        show_button['state'] = 'normal'
+        var_statut.set("Traitement terminé!")
+        bouton_affichage['state'] = 'normal'
         
     except Exception as e:
         messagebox.showerror("Erreur", f"Erreur lors du traitement: {e}")
-        status_var.set("Erreur de traitement")
+        var_statut.set("Erreur de traitement")
+
+def tfbgrbf():
+    global billy
+    # on save les donnes dans billy_data.txt
+    with open("billy_data.txt", "w") as data_de_bermond:
+        for i in range(90):
+            data_de_bermond.write(f"{i*3}° : ")
+            data_de_bermond.write(f"{billy[i]}\n")
 
 # Fonction pour afficher les graphiques
 def show_graphs():
-    status_var.set("Affichage des graphiques...")
+    var_statut.set("Affichage des graphiques...")
     
     # Convertir la liste de listes en tableau numpy
     np_billy2 = np.array(billy2)
@@ -161,8 +190,8 @@ def show_graphs():
         
         # Calcul du périmètre
         # Fermer le polygone en ajoutant le premier point à la fin
-        x_closed = np.append(x, x[0])
-        y_closed = np.append(y, y[0])
+        # x_closed = np.append(x, x[0])
+        # y_closed = np.append(y, y[0])
         
         # Calcul du périmètre
         perimeter = 0
@@ -211,41 +240,31 @@ def show_graphs():
         plt.legend()
         plt.grid(True)
 
-        # Afficher un quatrieme graphique polaire avec la moyenne mobile
+        #afficher un quatrieme graphique, le MEME que le 1er mais avec des points relies
         plt.figure(figsize=(10, 10))
-        ax = plt.subplot(111, projection='polar')
+        plt.plot(x, y, 'b-')  # Ligne bleue reliant les points
+        plt.scatter(0, 0, c='red', s=100, marker='*')  # Position du capteur
         
-        # Extraire les données de distance
-        data = np.array([val[0] for val in billy2])
+        # Limites du graphique
+        plt.xlim(-max_dist*1.1, max_dist*1.1)
+        plt.ylim(-max_dist*1.1, max_dist*1.1)
         
-        # Calculer la moyenne mobile
-        window_size = 10
-        weights = np.ones(window_size) / window_size
-        data_smooth = np.convolve(data, weights, mode='valid')
-        
-        # Ajuster les angles pour correspondre à la taille réduite après convolution
-        angles_smooth = np.linspace(0, 270, len(data_smooth))
-        angles_smooth_rad = np.radians(angles_smooth)
-        
-        # Tracer la moyenne mobile
-        ax.plot(angles_smooth_rad, data_smooth, c='blue', linewidth=2)
-        ax.scatter(angles_rad, [val[0] for val in billy2], c='red', s=5, alpha=0.3)
-        
-        ax.set_title('Moyenne mobile du scan')
-        ax.set_theta_zero_location('N')  # 0 degrés au Nord
-        ax.set_theta_direction(-1)  # Sens horaire
-        ax.set_rlabel_position(0)
+        plt.grid(True)
+        plt.title('Scan 2D de la pièce (270 degrés) - Points reliés')
+        plt.xlabel('X (cm)')
+        plt.ylabel('Y (cm)')
         
         # Ajouter une légende
-        plt.legend(['Moyenne mobile', 'Données brutes'])
-            
-        plt.tight_layout()
+        plt.plot([], [], 'r*', markersize=10, label='Capteur')
+        plt.plot([], [], 'b-', label='Points de mesure reliés')
+        plt.legend()
+
         plt.show(block=False)
         
-        status_var.set("Graphiques affichés")
+        var_statut.set("Graphiques affichés")
     else:
         messagebox.showerror("Erreur", "Aucune donnée à afficher")
-        status_var.set("Erreur d'affichage")
+        var_statut.set("Erreur d'affichage")
 
 # Fonction pour afficher les valeurs brutes des 3 scans
 def show_raw_values():
@@ -254,96 +273,102 @@ def show_raw_values():
         return
     
     # Créer une nouvelle fenêtre
-    raw_window = tk.Toplevel(root)
-    raw_window.title("Valeurs brutes des 3 scans")
-    raw_window.geometry("800x600")
+    fenetre_brute = tk.Toplevel(fenetre)
+    fenetre_brute.title("Valeurs brutes des 3 scans")
+    fenetre_brute.geometry("800x600")
     
     # Créer un notebook (onglets)
-    notebook = ttk.Notebook(raw_window)
-    notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    onglets = ttk.Notebook(fenetre_brute)
+    onglets.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
     
     # Créer un onglet pour chaque scan
     for scan_idx in range(3):
         # Créer un frame pour ce scan
-        frame = ttk.Frame(notebook)
-        notebook.add(frame, text=f"Scan {scan_idx+1}")
+        cadre = ttk.Frame(onglets)
+        onglets.add(cadre, text=f"Scan {scan_idx+1}")
         
         # Créer un widget de défilement
-        scroll_frame = ttk.Frame(frame)
-        scroll_frame.pack(fill=tk.BOTH, expand=True)
+        cadre_defilement = ttk.Frame(cadre)
+        cadre_defilement.pack(fill=tk.BOTH, expand=True)
         
-        scrollbar = ttk.Scrollbar(scroll_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        barre_defilement = ttk.Scrollbar(cadre_defilement)
+        barre_defilement.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Créer un widget Text pour afficher les données
-        text_widget = tk.Text(scroll_frame, yscrollcommand=scrollbar.set, width=60, height=30)
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        zone_texte = tk.Text(cadre_defilement, yscrollcommand=barre_defilement.set, width=60, height=30)
+        zone_texte.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        scrollbar.config(command=text_widget.yview)
+        barre_defilement.config(command=zone_texte.yview)
         
         # Insérer les en-têtes
-        text_widget.insert(tk.END, "Angle\tDistance (brute)\n")
-        text_widget.insert(tk.END, "-" * 40 + "\n")
+        zone_texte.insert(tk.END, "Angle\tDistance (brute)\n")
+        zone_texte.insert(tk.END, "-" * 40 + "\n")
         
         # Insérer les données
         angles = np.linspace(0, 270, len(billy))
         
         for i, angle in enumerate(angles):
             if i < len(billy) and scan_idx < len(billy[i]):
-                text_widget.insert(tk.END, f"{angle:.1f}°\t{billy[i][scan_idx]}\n")
+                zone_texte.insert(tk.END, f"{angle:.1f}°\t{billy[i][scan_idx]}\n")
             else:
-                text_widget.insert(tk.END, f"{angle:.1f}°\tN/A\n")
+                zone_texte.insert(tk.END, f"{angle:.1f}°\tN/A\n")
         
         # Rendre le widget en lecture seule
-        text_widget.config(state=tk.DISABLED)
+        zone_texte.config(state=tk.DISABLED)
 
 # Créer l'interface graphique
-root = tk.Tk()
-root.title("Scanner Laser")
-root.geometry("600x300")
+fenetre = tk.Tk()
+fenetre.title("Scanner Laser")
+fenetre.geometry("600x300")
 
 # Variables
-status_var = tk.StringVar()
-status_var.set("Prêt")
+var_statut = tk.StringVar()
+var_statut.set("Prêt")
 
 # Frame principal
-main_frame = ttk.Frame(root, padding=20)
-main_frame.pack(fill=tk.BOTH, expand=True)
+cadre_principal = ttk.Frame(fenetre, padding=20)
+cadre_principal.pack(fill=tk.BOTH, expand=True)
 
 # Titre
-title_label = ttk.Label(main_frame, text="Scanner Laser Contrôle", font=("Arial", 16, "bold"))
-title_label.pack(pady=10)
+etiquette_titre = ttk.Label(cadre_principal, text="FAVREAU ET AVOCAT-MAULAZ ETRS 402", font=("Arial", 16, "bold"))
+etiquette_titre.pack(pady=10)
 
 # Boutons
-button_frame = ttk.Frame(main_frame)
-button_frame.pack(pady=20)
+cadre_boutons = ttk.Frame(cadre_principal)
+cadre_boutons.pack(pady=20)
 
-collect_button = ttk.Button(button_frame, text="Collecter les données", command=start_collection)
-collect_button.grid(row=0, column=0, padx=10)
+bouton_collecte = ttk.Button(cadre_boutons, text="Collecter les données", command=start_collection)
+bouton_collecte.grid(row=0, column=0, padx=10)
 
-process_button = ttk.Button(button_frame, text="Traiter les données", command=process_data, state='disabled')
-process_button.grid(row=0, column=1, padx=10)
+bouton_traitement = ttk.Button(cadre_boutons, text="Traiter les données", command=process_data, state='disabled')
+bouton_traitement.grid(row=0, column=1, padx=10)
 
-show_button = ttk.Button(button_frame, text="Afficher les graphiques", command=show_graphs, state='disabled')
-show_button.grid(row=0, column=2, padx=10)
+bouton_affichage = ttk.Button(cadre_boutons, text="Afficher les graphiques", command=show_graphs, state='disabled')
+bouton_affichage.grid(row=0, column=2, padx=10)
 
-show_raw_button = ttk.Button(button_frame, text="Afficher valeurs brutes", command=show_raw_values, state='disabled')
-show_raw_button.grid(row=1, column=1, padx=10, pady=10)
+bouton_valeurs_brutes = ttk.Button(cadre_boutons, text="Afficher valeurs brutes", command=show_raw_values, state='disabled')
+bouton_valeurs_brutes.grid(row=1, column=1, padx=10, pady=10)
+
+bouton_nouveau_scan = ttk.Button(cadre_boutons, text="Nouveau scan", command=new_scan)
+bouton_nouveau_scan.grid(row=1, column=0, padx=10, pady=10)
+
+billymax = ttk.Button(cadre_boutons, text="sauver les données :)", command=tfbgrbf)
+billymax.grid(row=1, column=2, padx=10, pady=10)
 
 # Barre de progression
-progress_frame = ttk.Frame(main_frame)
-progress_frame.pack(fill=tk.X, pady=10)
+cadre_progression = ttk.Frame(cadre_principal)
+cadre_progression.pack(fill=tk.X, pady=10)
 
-progress_bar = ttk.Progressbar(progress_frame, orient=tk.HORIZONTAL, length=500, mode='determinate')
-progress_bar.pack(fill=tk.X)
+barre_progression = ttk.Progressbar(cadre_progression, orient=tk.HORIZONTAL, length=500, mode='determinate')
+barre_progression.pack(fill=tk.X)
 
 # Statut
-status_label = ttk.Label(main_frame, textvariable=status_var)
-status_label.pack(pady=10)
+etiquette_statut = ttk.Label(cadre_principal, textvariable=var_statut)
+etiquette_statut.pack(pady=10)
 
 # Initialiser la variable globale
 billy2 = []
 
 # Lancer l'interface
 if __name__ == "__main__":
-    root.mainloop()
+    fenetre.mainloop()
